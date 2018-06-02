@@ -18,7 +18,7 @@
   var x = d3.scaleOrdinal.domain(data);
 
   var y = d3.scale.linear().range([h, 0]);
-
+/*
   var xAxis = d3.svg.axis()
     .scale(x)
     .orient("bottom")
@@ -46,7 +46,7 @@ var svg = d3.select("body").append("svg")
 	x.domain(data.map(function(d) { return d.date; }));
   	y.domain([0, d3.max(data, function(d) { return d.omega; })]);
 
-/*
+
 svg.append("g")
       .attr("class", "x axis")
       .attr("transform", "translate(0," + height + ")")
