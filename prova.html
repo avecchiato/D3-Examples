@@ -1,73 +1,78 @@
-
 <!DOCTYPE html>
 <html>
 <head>
 	<meta charset="utf-8">
-	<title>D3 Page Template</title>
+	<title>Omega Scores</title>
+  <link href="prova.css" rel="stylesheet">
 	<script type="text/javascript" src="http://d3js.org/d3.v4.min.js"></script>
 </head>
 <body>
 <script type="text/javascript">
-
-	var w = 500;
-	var h = 200;
-	var padding = 20;
-
+	var margin = {top: 20, right: 20, bottom: 30, left: 50},
+      width = 960 - margin.left - margin.right,
+      height = 500 - margin.top - margin.bottom;
+      barPadding = 1;
 	var parseTime =  d3.timeParse("%-m/%-d/%y");
+ 
+  var dataset;
+  var xScale = d3.scaleTime()
+            .range([0, width]);
 
-  var x = d3.scaleOrdinal.domain(data);
+  var yScale = d3.scaleLinear()
+            .range([0, height]);
 
-  var y = d3.scale.linear().range([h, 0]);
-/*
-  var xAxis = d3.svg.axis()
-    .scale(x)
-    .orient("bottom")
-    .tickFormat(d3.time.format("%Y-%m-%d"));
+  var yAxis = d3.axisLeft()
+              .scale(yScale);
 
-var yAxis = d3.svg.axis()
-    .scale(y)
-    .orient("left")
-    .ticks(10);
 
-var svg = d3.select("body").append("svg")
+  d3.csv("/data.csv", function(error,data) {
+    if (error) throw error;
+                    data.forEach(function(d) {
+                    d.omega = +d.omega;
+                    d.date = parseTime(d.date);
+          });
+        console.log(data);
+        dataset=data;
+
+    var svg = d3.select("body")
+    .append("svg")
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom)
-  	.append("g")
-    .attr("transform", 
+    .append("g")
+    .attr("transform",
           "translate(" + margin.left + "," + margin.top + ")");
 
+    xScale.domain(d3.extent(data, function(d) { return d.date; }));
+    yScale.domain([d3.max(data,function(d) { return d.omega; }) , d3.min(data, function(d) { return d.omega; })]);
 
-	data =d3.csv("data.csv", function(error, data) {
-		data.forEach(function(d) {
-			d.date = parseTime(d.date);
-			d.omega = +d.omega;
-		});
-		
-	x.domain(data.map(function(d) { return d.date; }));
-  	y.domain([0, d3.max(data, function(d) { return d.omega; })]);
+  // Add the valueline path.
 
+   svg.selectAll(".bar")
+      .data(dataset)
+      .enter()
+      .append("rect")
+      .attr("class", function(d) { return "bar bar--" + (d.omega < 0 ? "negative" : "positive"); })
+      .attr("x", function(d) { return xScale(d.date); })
+      .attr("y", function(d) { return yScale(Math.max(0, d.omega)); })
+      .attr("height", function(d) { return Math.abs(yScale(d.omega) - yScale(0)); })
+      .attr("width", 2)
+      .on("mouseover", function(){
+        d3.select(this)
+        .attr("fill", "red")
+      });
 
-svg.append("g")
-      .attr("class", "x axis")
-      .attr("transform", "translate(0," + height + ")")
-      .call(xAxis)
-    .selectAll("text")
-      .style("text-anchor", "end")
-      .attr("dx", "-.8em")
-      .attr("dy", "-.55em")
-      .attr("transform", "rotate(-90)" );
+  // Add the X Axis
+     svg.append("g")
+      .attr("transform", "translate(0," + yScale(0) + ")")
+      .call(d3.axisBottom(xScale));
 
-  svg.append("g")
-      .attr("class", "y axis")
-      .call(yAxis)
-    .append("text")
-      .attr("transform", "rotate(-90)")
-      .attr("y", 6)
-      .attr("dy", ".71em")
-      .style("text-anchor", "end")
-      .text("Value ($)");
-*/
-	});
+  // Add the Y Axis
+    svg.append("g")
+        .attr("class", "y axis")
+        .attr("transform", "translate(0,0)")
+        .call(yAxis);
+});
+
 
 </script>
 </body>
