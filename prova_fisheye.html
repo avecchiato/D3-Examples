@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Omega Scores</title>
+  <link href="prova.css" rel="stylesheet">
+	<script type="text/javascript" src="http://d3js.org/d3.v4.min.js"></script>
+</head>
+<body>
+<script type="text/javascript">
+
+(function() {
+  d3.fisheye = {
+    scale: function(scaleType) {
+          return d3_fisheye_scale(scaleType(), 3, 0);
+      },
+    ordinal: function() {
+        return d3_fisheye_scale_ordinal(d3.scaleOrdinal(), 3, 0)
+    },
+    circular: function() {
+        var radius = 200,
+            distortion = 2,
+            k0,
+            k1,
+            focus = [0, 0];
+
+        function fisheye(d) {
+            var dx = d.x - focus[0],
+                dy = d.y - focus[1],
+                dd = Math.sqrt(dx * dx + dy * dy);
+            if (!dd || dd >= radius) return {x: d.x, y: d.y, z: 1};
+            var k = k0 * (1 - Math.exp(-dd * k1)) / dd * .75 + .25;
+            return {x: focus[0] + dx * k, y: focus[1] + dy * k, z: Math.min(k, 10)};
+        }
+
+        function rescale() {
+            k0 = Math.exp(distortion);
+            k0 = k0 / (k0 - 1) * radius;
+            k1 = distortion / radius;
+            return fisheye;
+        }
+
+        fisheye.radius = function(_) {
+            if (!arguments.length) return radius;
+            radius = +_;
+            return rescale();
+        };
+
+        fisheye.distortion = function(_) {
+            if (!arguments.length) return distortion;
+            distortion = +_;
+            return rescale();
+        };
+
+        fisheye.focus = function(_) {
+            if (!arguments.length) return focus;
+            focus = _;
+            return fisheye;
+        };
+
+        return rescale();
+    },
+  };
+
+    function d3_fisheye_scale(scale, d, a) {
+
+      function fisheye(_) {
+          var x = scale(_),
+              left = x < a,
+              range = d3.extent(scale.range()),
+              min = range[0],
+              max = range[1],
+              m = left ? a - min : max - a;
+          if (m == 0) m = max - min;
+          return (left ? -1 : 1) * m * (d + 1) / (d + (m / Math.abs(x - a))) + a;
+      }
+
+      fisheye.distortion = function (_) {
+          if (!arguments.length) return d;
+          d = +_;
+          return fisheye;
+      };
+
+      fisheye.focus = function (_) {
+          if (!arguments.length) return a;
+          a = +_;
+          return fisheye;
+      };
+
+      fisheye.copy = function () {
+          return d3_fisheye_scale(scale.copy(), d, a);
+      };
+
+      fisheye.nice = scale.nice;
+      fisheye.ticks = scale.ticks;
+      fisheye.tickFormat = scale.tickFormat;
+      return d3.rebind(fisheye, scale, "domain", "range");
+    };
+
+    function d3_fisheye_scale_ordinal(scale, d, a) {
+
+        function scale_factor(x) {
+            var 
+                left = x < a,
+                range = scale.rangeExtent(),
+                min = range[0],
+                max = range[1],
+                m = left ? a - min : max - a;
+
+            if (m == 0) m = max - min;
+            var factor = (left ? -1 : 1) * m * (d + 1) / (d + (m / Math.abs(x - a)));
+            return factor + a;
+        };
+
+        function fisheye(_) {
+            return scale_factor(scale(_));
+        };
+
+        fisheye.distortion = function (_) {
+            if (!arguments.length) return d;
+            d = +_;
+            return fisheye;
+        };
+
+        fisheye.focus = function (_) {
+            if (!arguments.length) return a;
+            a = +_;
+            return fisheye;
+        };
+
+        fisheye.copy = function () {
+            return d3_fisheye_scale_ordinal(scale.copy(), d, a);
+        };
+
+        fisheye.rangeBand = function (_) {
+            var band = scale.rangeBand(),
+                x = scale(_),
+                x1 = scale_factor(x),
+                x2 = scale_factor(x + band);
+
+            return Math.abs(x2 - x1);
+        };
+
+       
+        fisheye.rangeRoundBands = function (x, padding, outerPadding) {
+            var roundBands = arguments.length === 3 ? scale.rangeRoundBands(x, padding, outerPadding) : arguments.length === 2 ? scale.rangeRoundBands(x, padding) : scale.rangeRoundBands(x);
+            fisheye.padding = padding * scale.rangeBand();
+            fisheye.outerPadding = outerPadding;
+            return fisheye;
+        };
+
+        return d3.rebind(fisheye, scale, "domain",  "rangeExtent", "range");
+    };
+        
+})();
+function rebind(target, source) {
+  var i = 1,
+    n = arguments.length,
+    method;
+  while (++i < n) target[method = arguments[i]] = d3_rebind(target, source, source[method]);
+  return target;
+};
+
+function d3_rebind(target, source, method) {
+  return function() {
+    var value = method.apply(source, arguments);
+    return value === source ? target : value;
+  };
+}
+
+
+	var margin = {top: 20, right: 20, bottom: 30, left: 50},
+      width = 960 - margin.left - margin.right,
+      height = 500 - margin.top - margin.bottom;
+      barPadding = 1;
+  var parseTime =  d3.timeParse("%-m/%-d/%y");
+
+  var x = d3.fisheye.ordinal().rangeRoundBands([0, width - p[1] - p[3]]).distortion(0.9),
+      y = d3.scale.linear().range([0, height - p[0] - p[2]]);
+
+  var dataset;
+  var xScale = d3.scaleTime()
+            .range([0, width]);
+
+  var xScale2 = d3.scaleTime()
+            .range([0, width]);
+
+  var yScale = d3.scaleLinear()
+            .range([0, height]);
+
+  var yAxis = d3.axisLeft()
+              .scale(yScale);
+
+  var div = d3.select("body").append("div")
+    .attr("class", "tooltip")
+    .style("opacity", 0);
+
+  /*var brush = d3.brushX()
+    .extent([[0, 0], [width, height]])
+    .on("brush", brushed);*/
+/*
+var zoom = d3.zoom()
+    .scaleExtent([1, Infinity])
+    .translateExtent([[0, 0], [width, height]])
+    .extent([[0, 0], [width, height]])
+    .on("zoom", zoomed);*/
+
+  d3.csv("/data.csv", function(error,data) {
+    if (error) throw error;
+                    data.forEach(function(d) {
+                    d.omega = +d.omega;
+                    d.date = parseTime(d.date);
+          });
+        console.log(data);
+        dataset=data;
+
+    var svg = d3.select("body")
+    .append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform",
+          "translate(" + margin.left + "," + margin.top + ")");
+
+    xScale.domain(d3.extent(data, function(d) { return d.date; }));
+    yScale.domain([d3.max(data,function(d) { return d.omega; }) , d3.min(data, function(d) { return d.omega; })]);
+
+  // Add the valueline path.
+
+
+   svg.selectAll(".bar")
+      .data(dataset)
+      .enter()
+      .append("rect")
+      .attr("class", function(d) { return "bar bar--" + (d.omega < 0 ? "negative" : "positive"); })
+      .attr("x", function(d) { return xScale(d.date); })
+      .attr("y", function(d) { return yScale(Math.max(0, d.omega)); })
+      .attr("height", function(d) { return Math.abs(yScale(d.omega) - yScale(0)); })
+      .attr("width", 2)
+      .on("mouseover", function (d){
+        console.log(d);
+      });
+
+      /*.on("mouseover", function(d) {
+       div.transition()
+         .duration(200)
+         .style("opacity", .9);
+       div.html(d.date + "<br/>" + d.omega)
+         .style("left", (d3.event.pageX) + "px")
+         .style("top", (d3.event.pageY - 28) + "px");
+       })
+     .on("mouseout", function(d) {
+       div.transition()
+         .duration(500)
+         .style("opacity", 0);
+       });*/
+
+  // Add the X Axis
+     svg.append("g")
+      .attr("class", "x-axis")
+      .attr("transform", "translate(0," + yScale(0) + ")")
+      .call(d3.axisBottom(xScale));
+
+  // Add the Y Axis
+    svg.append("g")
+        .attr("class", "y-axis")
+        .attr("transform", "translate(0,0)")
+        .call(yAxis);
+
+   /* svg.append("g")
+      .attr("class", "brush")
+      .call(brush);*/
+/*
+  svg.append("rect")
+      .attr("class", "zoom")
+      .attr("width", width)
+      .attr("height", height)
+      .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+      .call(zoom);*/
+svg.on("mousemove", function() {
+    var mouse = d3.mouse(this);
+    
+    //refocus the distortion
+    x.focus(mouse[0]);
+    //redraw the bars
+    rect
+    .attr("x", function(d) { return x(d.x); })
+    .attr("y", function(d) { return -y(d.y0) - y(d.y); })
+    .attr("width", function(d) {return x.rangeBand(d.x);});
+    
+    //redraw the text
+    label.attr("x", function(d) { return x(d) + x.rangeBand(d) / 2; });
+});
+});
+
+/*function brushed() {
+if (d3.event.sourceEvent && d3.event.sourceEvent.type === "zoom") return; // ignore zoom-by-brush
+  var range = d3.brushSelection(this)
+          .map(xScale.invert)
+}*/
+/*
+function zoomed() {
+  var t = d3.event.transform;
+  x.domain(t.rescaleX(xScale2).domain());
+  svg.select(".x-axis").call(xAxis);
+}
+*/
+
+
+
+
+</script>
+</body>
+</html>
